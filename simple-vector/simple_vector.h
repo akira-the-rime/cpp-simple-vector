@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <initializer_list>
 #include <iterator>
@@ -20,13 +21,13 @@ public:
 
     SimpleVector() noexcept = default;
 
-    explicit SimpleVector(std::size_t size) : pointer(size), size_(size), capacity_(size) { 
+    explicit SimpleVector(std::size_t size) : pointer(size), size_(size), capacity_(size) {
         for (std::size_t i = 0; i < size_; ++i) {
             ShoveElement(this->At(i), Type{});
         }
     }
 
-    SimpleVector(size_t size, const Type& value) : pointer(size), size_(size), capacity_(size) { 
+    SimpleVector(size_t size, const Type& value) : pointer(size), size_(size), capacity_(size) {
         std::fill_n(pointer.Get(), capacity_, value);
     }
 
@@ -34,14 +35,15 @@ public:
         std::copy(std::make_move_iterator(init.begin()), std::make_move_iterator(init.end()), pointer.Get());
     }
 
+    // Этот конструктор нужен для того, чтобы инициализировать объект с помощью функции Resize().
+    // Ее определение есть после определения этого класса.
+    // Эта функция была одной из задач спринта.
     explicit SimpleVector(const std::pair<std::size_t, std::size_t>& data) : pointer(data.first), size_(data.first), capacity_(data.second) { }
 
     SimpleVector(const SimpleVector& other) {
         try {
             SimpleVector<Type> temp(other.capacity_);
-            for (std::size_t i = 0; i < other.size_; ++i) {
-                temp.pointer[i] = other.pointer[i];
-            }
+            std::copy(this->begin(), this->end(), temp.begin());
             temp.size_ = other.size_;
             this->swap(temp);
         }
@@ -50,9 +52,10 @@ public:
         }
     }
 
-    SimpleVector(SimpleVector&& other) noexcept: size_(other.size_), capacity_(other.capacity_) {
+    SimpleVector(SimpleVector&& other) noexcept : size_(other.size_), capacity_(other.capacity_) {
         this->pointer = std::move(other.pointer);
-        other.size_ = other.capacity_ = 0;
+        other.size_ = 0;
+        other.capacity_ = 0;
     }
 
     SimpleVector& operator=(const SimpleVector& rhs) {
@@ -87,7 +90,14 @@ public:
         ++size_;
     }
 
+    // Перебрасываю исключение std::bad_alloc() в main, для того чтобы пользователь класса мог его обработать там.
+    // 
+    // Насчет двух версий Insert и PushBack в теории было написано, что универсальный вариант - это принять параметр по значению.
+    // Если передаваемый аргумент временный, то он переместится в параметр метода, а если нет то скопируется. 
+    // Далее, в методе, функция move будет работать только в том случае, если объект перемещаемый. 
+    // Иначе будет происходить копирование, а функция move будет игнорироваться.
     Iterator Insert(ConstIterator pos, Type value) {
+        assert(pos >= this->cbegin() || pos <= this->cend());
         std::size_t to_insert = pos - this->begin();
         if (size_ == capacity_) {
             try {
@@ -130,7 +140,7 @@ public:
     }
 
     void PopBack() noexcept {
-        if (size_) {
+        if (!this->IsEmpty()) {
             --size_;
         }
     }
@@ -167,15 +177,18 @@ public:
         return capacity_;
     }
 
+    // В теории было написано, что тернарный оператор предпочтительнее, так как if заставляет замедлиться выполнение программы.
     bool IsEmpty() const noexcept {
-        return size_ ? false : true;
+        return (size_ == 0) ? false : true;
     }
 
     Type& operator[](size_t index) noexcept {
+        assert(index < this->size_);
         return pointer[index];
     }
 
     const Type& operator[](size_t index) const noexcept {
+        assert(index < this->size_);
         return pointer[index];
     }
 
@@ -222,51 +235,27 @@ public:
     }
 
     Iterator begin() noexcept {
-        return size_ ? &pointer[0] : nullptr;
+        return pointer.Get();
     }
 
     Iterator end() noexcept {
-        return size_ ? &pointer[size_] : nullptr;
+        return pointer.Get() + size_;
     }
 
     ConstIterator begin() const noexcept {
-        return size_ ? &pointer[0] : nullptr;
+        return pointer.Get();
     }
 
     ConstIterator end() const noexcept {
-        return size_ ? &pointer[size_] : nullptr;
+        return pointer.Get() + size_;
     }
 
     ConstIterator cbegin() const noexcept {
-        return size_ ? &pointer[0] : nullptr;
+        return pointer.Get();
     }
 
     ConstIterator cend() const noexcept {
-        return size_ ? &pointer[size_] : nullptr;
-    }
-
-    inline bool operator==(const SimpleVector<Type>& rhs) {
-        return std::equal(this->begin(), this->end(), rhs.begin());
-    }
-
-    inline bool operator!=(const SimpleVector<Type>& rhs) {
-        return !(*this == rhs);
-    }
-
-    inline bool operator<(const SimpleVector<Type>& rhs) {
-        return std::lexicographical_compare(this->begin(), this->end(), rhs.begin(), rhs.end());
-    }
-
-    inline bool operator<=(const SimpleVector<Type>& rhs) {
-        return (*this < rhs) || (*this == rhs);
-    }
-
-    inline bool operator>(const SimpleVector<Type>& rhs) {
-        return !(*this < rhs) && (*this != rhs);
-    }
-
-    inline bool operator>=(const SimpleVector<Type>& rhs) {
-        return !(*this < rhs);
+        return pointer.Get() + size_;
     }
 
 private:
@@ -289,4 +278,39 @@ private:
 
 std::pair<std::size_t, std::size_t> Reserve(std::size_t size) {
     return { 0, size };
+}
+
+template <class Type>
+inline bool operator==(const SimpleVector<Type>& lhs, const SimpleVector<Type>& rhs) {
+    return std::equal(lhs.begin(), lhs.end(), rhs.begin());
+}
+
+template <class Type>
+inline bool operator!=(const SimpleVector<Type>& lhs, const SimpleVector<Type>& rhs) {
+    return !(lhs == rhs);
+}
+
+template <class Type>
+inline bool operator<(const SimpleVector<Type>& lhs, const SimpleVector<Type>& rhs) {
+    return std::lexicographical_compare(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
+}
+
+// Lexicographical_compare() возвращает true, если "меньше" и false, если "больше или равно".
+// (lhs < rhs) вернет истину только в том случае, если (lhs < rhs).
+// Это нужно дополнить проверкой на равенство lhs и rhs, чтобы возвращаемое bool-значение соотв. оператору <=. 
+template <class Type>
+inline bool operator<=(const SimpleVector<Type>& lhs, const SimpleVector<Type>& rhs) {
+    return (lhs < rhs) || (lhs == rhs);
+}
+
+// Тоже самое, что и с <=, только надо удостовериться, что lhs и rhs не равны.
+// Так как !(lhs < rhs) вернет истину в случае, если lhs >= rhs.
+template <class Type>
+inline bool operator>(const SimpleVector<Type>& lhs, const SimpleVector<Type>& rhs) {
+    return !(lhs < rhs) && (lhs != rhs);
+}
+
+template <class Type>
+inline bool operator>=(const SimpleVector<Type>& lhs, const SimpleVector<Type>& rhs) {
+    return !(lhs < rhs);
 }

@@ -33,7 +33,7 @@ public:
 
     ArrayPtr& operator=(const ArrayPtr&) = delete;
 
-    ArrayPtr& operator=(ArrayPtr&& other){
+    ArrayPtr& operator=(ArrayPtr&& other) {
         this->raw_ptr_ = other.Release();
         return *this;
     }

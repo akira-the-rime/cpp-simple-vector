@@ -1,4 +1,3 @@
-#include <cassert>
 #include <iostream>
 #include <numeric>
 
@@ -32,6 +31,7 @@ public:
     X(size_t num) : x_(num) { }
 
     X(const X& other) = delete;
+
     X& operator=(const X& other) = delete;
 
     X(X&& other) noexcept {
