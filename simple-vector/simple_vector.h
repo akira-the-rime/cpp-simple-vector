@@ -69,7 +69,7 @@ public:
     }
 
     Iterator Insert(ConstIterator pos, Type value) {
-        assert(pos >= this->cbegin() || pos <= this->cend());
+        assert(pos >= this->cbegin() && pos <= this->cend());
         std::size_t to_insert = pos - this->begin();
         if (size_ == capacity_) {
             std::size_t new_capacity = capacity_ ? capacity_ * 2 : 1;
