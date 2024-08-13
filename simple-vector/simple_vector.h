@@ -168,7 +168,7 @@ public:
         else {
             std::size_t new_capacity = std::max(new_size, capacity_ * 2);
             ArrayPtr<Type> temp(new_capacity);
-            AssignElements(temp);
+            AssignElements(temp, new_capacity);
             for (std::size_t i = 0; i < this->size_; ++i) {
                 temp[i] = std::move(this->pointer[i]);
             }
@@ -209,6 +209,12 @@ private:
             throw std::out_of_range("Out of range."s);
         }
         return pointer[index];
+    }
+
+    void AssignElements(ArrayPtr<Type>& entity, std::size_t new_capacity) noexcept {
+        for (std::size_t i = 0; i < new_capacity; ++i) {
+            entity[i] = std::move(Type{});
+        }
     }
 
     void AssignElements(SimpleVector<Type>& entity) noexcept {
